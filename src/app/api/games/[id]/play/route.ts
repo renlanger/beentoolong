@@ -19,10 +19,10 @@ export async function POST(
     if (
       !guesses ||
       typeof guesses !== "object" ||
-      Object.values(guesses).some((v) => typeof v !== "boolean")
+      Object.values(guesses).some((v) => typeof v !== "string")
     ) {
       return NextResponse.json(
-        { error: "Guesses must be a map of statement IDs to booleans" },
+        { error: "Guesses must be a map of question IDs to chosen option IDs" },
         { status: 400 }
       );
     }

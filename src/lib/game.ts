@@ -2,45 +2,38 @@ import { nanoid } from "nanoid";
 import type {
   Game,
   Player,
-  QuizStatement,
+  QuizQuestion,
+  QuizOption,
   GameView,
-  PublicQuizStatement,
-  QuizResult,
+  PublicQuizQuestion,
+  QuizQuestionResult,
 } from "./types";
-import { NUM_REAL_UPDATES, NUM_FAKE_UPDATES } from "./types";
+import { NUM_REAL_UPDATES, UPDATE_PROMPTS } from "./types";
 import { getGame, saveGame } from "./redis";
-import { generateFakeUpdates } from "./ai";
+import { generatePairedFakes } from "./ai";
 
 function newPlayer(name: string): Player {
   return {
     name,
     secret: nanoid(32),
     updates: [],
-    quizStatements: [],
+    quizQuestions: [],
     guesses: {},
     score: null,
     finishedPlaying: false,
   };
 }
 
-function shuffle<T>(arr: T[]): T[] {
-  const copy = [...arr];
-  for (let i = copy.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [copy[i], copy[j]] = [copy[j], copy[i]];
-  }
-  return copy;
-}
-
-function buildQuizStatements(
-  realUpdates: string[],
-  fakeUpdates: string[]
-): QuizStatement[] {
-  const statements: QuizStatement[] = [
-    ...realUpdates.map((text) => ({ id: nanoid(12), text, isReal: true })),
-    ...fakeUpdates.map((text) => ({ id: nanoid(12), text, isReal: false })),
-  ];
-  return shuffle(statements);
+function buildQuizQuestions(
+  updates: string[],
+  fakes: string[]
+): QuizQuestion[] {
+  return UPDATE_PROMPTS.map((prompt, i) => ({
+    id: nanoid(12),
+    promptText: prompt.quizPrompt,
+    realOption: { id: nanoid(12), text: updates[i] },
+    fakeOption: { id: nanoid(12), text: fakes[i] },
+  }));
 }
 
 function resolvePlayerBySecret(
@@ -112,24 +105,22 @@ export async function submitUpdates(
   const bothReady = opponent && opponent.updates.length > 0;
 
   if (bothReady) {
+    const promptsAndAnswers = (p: Player) =>
+      UPDATE_PROMPTS.map((prompt, i) => ({
+        prompt: prompt.prompt,
+        realAnswer: p.updates[i],
+      }));
+
     const [creatorFakes, friendFakes] = await Promise.all([
-      generateFakeUpdates(
-        game.creator.name,
-        game.creator.updates,
-        NUM_FAKE_UPDATES
-      ),
-      generateFakeUpdates(
-        game.friend!.name,
-        game.friend!.updates,
-        NUM_FAKE_UPDATES
-      ),
+      generatePairedFakes(game.creator.name, promptsAndAnswers(game.creator)),
+      generatePairedFakes(game.friend!.name, promptsAndAnswers(game.friend!)),
     ]);
 
-    game.creator.quizStatements = buildQuizStatements(
+    game.creator.quizQuestions = buildQuizQuestions(
       game.creator.updates,
       creatorFakes
     );
-    game.friend!.quizStatements = buildQuizStatements(
+    game.friend!.quizQuestions = buildQuizQuestions(
       game.friend!.updates,
       friendFakes
     );
@@ -143,7 +134,7 @@ export async function submitUpdates(
 export async function submitGuesses(
   gameId: string,
   secret: string,
-  guesses: Record<string, boolean>
+  guesses: Record<string, string>
 ): Promise<Game> {
   const game = await getGame(gameId);
   if (!game) throw new Error("Game not found");
@@ -160,8 +151,8 @@ export async function submitGuesses(
   if (!opponent) throw new Error("No opponent");
 
   player.guesses = guesses;
-  player.score = opponent.quizStatements.reduce((score, statement) => {
-    return score + (guesses[statement.id] === statement.isReal ? 1 : 0);
+  player.score = opponent.quizQuestions.reduce((score, q) => {
+    return score + (guesses[q.id] === q.realOption.id ? 1 : 0);
   }, 0);
   player.finishedPlaying = true;
 
@@ -171,6 +162,12 @@ export async function submitGuesses(
 
   await saveGame(game);
   return game;
+}
+
+function shuffledOptions(q: QuizQuestion): [QuizOption, QuizOption] {
+  return Math.random() < 0.5
+    ? [q.realOption, q.fakeOption]
+    : [q.fakeOption, q.realOption];
 }
 
 export function buildGameView(game: Game, secret: string): GameView {
@@ -184,35 +181,47 @@ export function buildGameView(game: Game, secret: string): GameView {
         ? game.creator
         : null;
 
-  let myQuiz: PublicQuizStatement[] | null = null;
+  let myQuiz: PublicQuizQuestion[] | null = null;
   if (
     opponent &&
-    opponent.quizStatements.length > 0 &&
+    opponent.quizQuestions.length > 0 &&
     me &&
     !me.finishedPlaying
   ) {
-    myQuiz = opponent.quizStatements.map((s) => ({ id: s.id, text: s.text }));
+    myQuiz = opponent.quizQuestions.map((q) => {
+      const [a, b] = shuffledOptions(q);
+      return {
+        id: q.id,
+        promptText: q.promptText.replace("____", opponent.name),
+        options: [
+          { id: a.id, text: a.text },
+          { id: b.id, text: b.text },
+        ],
+      };
+    });
   }
 
-  let myResults: QuizResult[] | null = null;
+  let myResults: QuizQuestionResult[] | null = null;
   if (me?.finishedPlaying && opponent) {
-    myResults = opponent.quizStatements.map((s) => ({
-      id: s.id,
-      text: s.text,
-      isReal: s.isReal,
-      myGuess: me.guesses[s.id] ?? false,
-      correct: me.guesses[s.id] === s.isReal,
+    myResults = opponent.quizQuestions.map((q) => ({
+      id: q.id,
+      promptText: q.promptText.replace("____", opponent.name),
+      realOptionText: q.realOption.text,
+      fakeOptionText: q.fakeOption.text,
+      myChosenOptionId: me.guesses[q.id] ?? null,
+      correct: me.guesses[q.id] === q.realOption.id,
     }));
   }
 
-  let opponentResults: QuizResult[] | null = null;
+  let opponentResults: QuizQuestionResult[] | null = null;
   if (game.status === "finished" && me && opponent) {
-    opponentResults = me.quizStatements.map((s) => ({
-      id: s.id,
-      text: s.text,
-      isReal: s.isReal,
-      myGuess: opponent.guesses[s.id] ?? false,
-      correct: opponent.guesses[s.id] === s.isReal,
+    opponentResults = me.quizQuestions.map((q) => ({
+      id: q.id,
+      promptText: q.promptText.replace("____", me.name),
+      realOptionText: q.realOption.text,
+      fakeOptionText: q.fakeOption.text,
+      myChosenOptionId: opponent.guesses[q.id] ?? null,
+      correct: opponent.guesses[q.id] === q.realOption.id,
     }));
   }
 

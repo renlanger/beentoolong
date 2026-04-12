@@ -2,13 +2,13 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useGameView } from "@/lib/client";
-import type { QuizResult } from "@/lib/types";
+import type { QuizQuestionResult } from "@/lib/types";
 
 function ResultCard({
   result,
   opponentName,
 }: {
-  result: QuizResult;
+  result: QuizQuestionResult;
   opponentName: string;
 }) {
   return (
@@ -19,25 +19,34 @@ function ResultCard({
           : "border-danger/30 bg-danger/5"
       }`}
     >
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-foreground flex-1">&ldquo;{result.text}&rdquo;</p>
-        <span className="text-lg shrink-0">
-          {result.correct ? "\u2705" : "\u274C"}
-        </span>
+      <p className="text-sm font-medium text-muted mb-3">
+        {result.promptText}
+      </p>
+      <div className="space-y-2">
+        <div className="flex items-start gap-2">
+          <span
+            className="px-2 py-0.5 rounded-full text-xs font-medium shrink-0
+              bg-success/20 text-success"
+          >
+            Real
+          </span>
+          <p className="text-foreground">&ldquo;{result.realOptionText}&rdquo;</p>
+        </div>
+        <div className="flex items-start gap-2">
+          <span
+            className="px-2 py-0.5 rounded-full text-xs font-medium shrink-0
+              bg-danger/20 text-danger"
+          >
+            Fake
+          </span>
+          <p className="text-foreground">&ldquo;{result.fakeOptionText}&rdquo;</p>
+        </div>
       </div>
-      <div className="mt-2 flex items-center gap-2 text-sm">
-        <span
-          className={`px-2 py-0.5 rounded-full text-xs font-medium ${
-            result.isReal
-              ? "bg-success/20 text-success"
-              : "bg-danger/20 text-danger"
-          }`}
-        >
-          {result.isReal ? "Real" : "AI Generated"}
-        </span>
+      <div className="mt-3 flex items-center justify-between text-sm">
         <span className="text-muted">
-          You said {result.myGuess ? `"real"` : `"no way"`}
+          You picked the {result.correct ? "real" : "fake"} one
         </span>
+        <span className="text-lg">{result.correct ? "\u2705" : "\u274C"}</span>
       </div>
     </div>
   );

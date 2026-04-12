@@ -198,8 +198,8 @@ export default function GameHub() {
             {opponent?.name ?? "Your friend"} is in!
           </h1>
           <p className="text-muted">
-            Time to see how well you know each other. You&apos;ll see statements about{" "}
-            {opponent?.name ?? "them"} &mdash; some real, some fake. Can you tell which is which?
+            Time to see how well you know each other. For each question about{" "}
+            {opponent?.name ?? "them"}, pick the answer you think is real.
           </p>
           <button
             onClick={() => router.push(`/game/${gameId}/play`)}

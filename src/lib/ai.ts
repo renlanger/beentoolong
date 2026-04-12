@@ -1,54 +1,57 @@
 import { generateText } from "ai";
 import { openai } from "@ai-sdk/openai";
-import { NUM_FAKE_UPDATES } from "./types";
 
-export async function generateFakeUpdates(
+export async function generatePairedFakes(
   playerName: string,
-  realUpdates: string[],
-  count: number = NUM_FAKE_UPDATES
+  promptsAndAnswers: Array<{ prompt: string; realAnswer: string }>
 ): Promise<string[]> {
   const { text } = await generateText({
     model: openai("gpt-4o-mini"),
     temperature: 0.9,
-    prompt: `You are helping create a social reconnection game. Two old friends are catching up, and you need to generate fake life updates that will be mixed in with real ones.
+    prompt: `You are helping create a social reconnection game. Two old friends are catching up.
 
-Given these REAL life updates from ${playerName}:
-${realUpdates.map((u, i) => `${i + 1}. ${u}`).join("\n")}
+For each question below, ${playerName} gave a REAL answer. Generate one convincing FAKE answer that their friend might believe instead.
 
-Generate exactly ${count} FAKE but plausible life updates. Rules:
-- Match the tone, length, and specificity of the real updates
-- Make them believable for someone with a similar life stage
-- Cover different topics than the real updates when possible
-- Don't make them obviously absurd or humorous
-- Each should be a single sentence or short statement, like the real ones
+Rules:
+- Match the tone and specificity of the real answer
+- Make the fake plausible for someone at a similar life stage — not absurd
+- The fake should be a genuine alternative, not obviously wrong
+- Keep it roughly the same length as the real answer
 
-Return ONLY a JSON array of ${count} strings. No other text.`,
+${promptsAndAnswers
+  .map(
+    ({ prompt, realAnswer }, i) =>
+      `${i + 1}. Question: "${prompt}"
+   Real answer: "${realAnswer}"
+   Fake answer:`
+  )
+  .join("\n\n")}
+
+Return ONLY a JSON array of ${promptsAndAnswers.length} strings (one fake per question, in order). No other text.`,
   });
 
   try {
     const cleaned = text.replace(/```json\n?|\n?```/g, "").trim();
     const parsed = JSON.parse(cleaned);
-    if (Array.isArray(parsed) && parsed.length === count) {
+    if (Array.isArray(parsed) && parsed.length === promptsAndAnswers.length) {
       return parsed;
     }
-    return parsed.slice(0, count);
+    return parsed.slice(0, promptsAndAnswers.length);
   } catch {
-    return generateFallbackFakes(count);
+    return generateFallbackFakes(promptsAndAnswers.length);
   }
 }
 
 function generateFallbackFakes(count: number): string[] {
   const fallbacks = [
-    "I started learning to play the piano",
-    "I moved to a new city on the west coast",
-    "I got really into marathon running",
-    "I switched to a completely different career field",
-    "I adopted a dog from the local shelter",
-    "I went back to school for a graduate degree",
-    "I started my own small business",
-    "I took a solo trip to Japan",
+    "Denver, Colorado",
+    "I'm in finance now",
+    "I adopted a rescue dog",
+    "I got really into ceramics",
+    "I ran a half marathon",
+    "I moved abroad for a year",
+    "I started learning to surf",
+    "I got my real estate license",
   ];
-
-  const shuffled = [...fallbacks].sort(() => Math.random() - 0.5);
-  return shuffled.slice(0, count);
+  return [...fallbacks].sort(() => Math.random() - 0.5).slice(0, count);
 }
