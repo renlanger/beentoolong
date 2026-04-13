@@ -32,15 +32,17 @@ function ResultCard({
           </span>
           <p className="text-foreground">&ldquo;{result.realOptionText}&rdquo;</p>
         </div>
-        <div className="flex items-start gap-2">
-          <span
-            className="px-2 py-0.5 rounded-full text-xs font-medium shrink-0
-              bg-danger/20 text-danger"
-          >
-            Fake
-          </span>
-          <p className="text-foreground">&ldquo;{result.fakeOptionText}&rdquo;</p>
-        </div>
+        {result.fakeOptionTexts.map((fakeText, i) => (
+          <div key={i} className="flex items-start gap-2">
+            <span
+              className="px-2 py-0.5 rounded-full text-xs font-medium shrink-0
+                bg-danger/20 text-danger"
+            >
+              Fake
+            </span>
+            <p className="text-foreground">&ldquo;{fakeText}&rdquo;</p>
+          </div>
+        ))}
       </div>
       <div className="mt-3 flex items-center justify-between text-sm">
         <span className="text-muted">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useGameView, getPlayerSecret, setPlayerSecret } from "@/lib/client";
 
@@ -40,7 +40,7 @@ function ShareLink({ gameId }: { gameId: string }) {
   );
 }
 
-function JoinForm({ gameId }: { gameId: string }) {
+function JoinForm({ gameId, creatorName }: { gameId: string; creatorName: string }) {
   const router = useRouter();
   const [name, setName] = useState("");
   const [loading, setLoading] = useState(false);
@@ -67,7 +67,7 @@ function JoinForm({ gameId }: { gameId: string }) {
 
       const { friendSecret } = await res.json();
       setPlayerSecret(gameId, friendSecret);
-      router.push(`/game/${gameId}/setup`);
+      router.push(`/game/${gameId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Something went wrong");
       setLoading(false);
@@ -82,6 +82,7 @@ function JoinForm({ gameId }: { gameId: string }) {
         onChange={(e) => setName(e.target.value)}
         placeholder="Your name"
         maxLength={30}
+        autoFocus
         className="w-full px-4 py-3 text-lg rounded-xl border border-border bg-surface
           focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent
           placeholder:text-muted/60"
@@ -94,10 +95,77 @@ function JoinForm({ gameId }: { gameId: string }) {
           disabled:opacity-50 disabled:cursor-not-allowed
           transition-colors cursor-pointer"
       >
-        {loading ? "Joining..." : "Join Game"}
+        {loading ? "Joining..." : "I'm in"}
       </button>
       {error && <p className="text-danger text-sm">{error}</p>}
     </form>
+  );
+}
+
+// Animated text reveal helper
+function AnimatedLines({
+  lines,
+  buttonLabel,
+  onButton,
+  delayBetween = 1200,
+  initialDelay = 400,
+}: {
+  lines: string[];
+  buttonLabel: string;
+  onButton: () => void;
+  delayBetween?: number;
+  initialDelay?: number;
+}) {
+  const [phase, setPhase] = useState(0);
+
+  useEffect(() => {
+    const timers = lines.map((_, i) =>
+      setTimeout(() => setPhase(i + 1), initialDelay + i * delayBetween)
+    );
+    // Button appears after all lines
+    timers.push(
+      setTimeout(
+        () => setPhase(lines.length + 1),
+        initialDelay + lines.length * delayBetween
+      )
+    );
+    return () => timers.forEach(clearTimeout);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  return (
+    <main className="flex-1 flex items-center justify-center px-4 py-16">
+      <div className="max-w-md w-full text-center space-y-5">
+        {lines.map((line, i) => (
+          <p
+            key={i}
+            className={i < 2 ? "text-4xl font-bold text-foreground" : "text-lg text-muted leading-relaxed"}
+            style={{
+              opacity: phase > i ? 1 : 0,
+              transform: phase > i ? "translateY(0)" : "translateY(14px)",
+              transition: "opacity 0.9s ease, transform 0.9s ease",
+            }}
+          >
+            {line}
+          </p>
+        ))}
+
+        <div
+          style={{
+            opacity: phase > lines.length ? 1 : 0,
+            transform: phase > lines.length ? "translateY(0)" : "translateY(14px)",
+            transition: "opacity 0.9s ease, transform 0.9s ease",
+          }}
+        >
+          <button
+            onClick={onButton}
+            className="mt-2 px-10 py-3 text-lg font-medium rounded-xl
+              bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer"
+          >
+            {buttonLabel}
+          </button>
+        </div>
+      </div>
+    </main>
   );
 }
 
@@ -105,7 +173,9 @@ export default function GameHub() {
   const params = useParams();
   const router = useRouter();
   const gameId = params.id as string;
-  const { game, loading, error } = useGameView(gameId, 5000);
+  const { game, loading, error } = useGameView(gameId, 3000);
+  const [introComplete, setIntroComplete] = useState(false);
+  const [transitionComplete, setTransitionComplete] = useState(false);
 
   if (loading) {
     return (
@@ -133,20 +203,40 @@ export default function GameHub() {
     );
   }
 
-  const secret = getPlayerSecret(gameId);
   const isSpectator = game.myRole === "spectator";
   const me = game.myRole === "creator" ? game.creator : game.friend;
   const opponent = game.myRole === "creator" ? game.friend : game.creator;
 
+  // ── Spectator: friend arriving via invite link ──────────────────────────────
+
   if (isSpectator && !game.friend) {
+    // Step 1: cinematic intro
+    if (!introComplete) {
+      return (
+        <AnimatedLines
+          lines={[
+            "Hey,",
+            "it's been too long.",
+            `${game.creator.name} has been wanting to connect with you.`,
+            "Can you guess what they've been up to?",
+          ]}
+          buttonLabel="Let's find out"
+          onButton={() => setIntroComplete(true)}
+          initialDelay={400}
+          delayBetween={1100}
+        />
+      );
+    }
+
+    // Step 2: name form
     return (
       <main className="flex-1 flex items-center justify-center px-4 py-16">
         <div className="max-w-md w-full text-center space-y-6">
           <div className="space-y-2">
-            <h1 className="text-3xl font-bold">{game.creator.name} wants to reconnect!</h1>
-            <p className="text-muted">Enter your name to start playing</p>
+            <h1 className="text-2xl font-bold">What&apos;s your name?</h1>
+            <p className="text-muted">So {game.creator.name} knows it&apos;s you</p>
           </div>
-          <JoinForm gameId={gameId} />
+          <JoinForm gameId={gameId} creatorName={game.creator.name} />
         </div>
       </main>
     );
@@ -163,17 +253,46 @@ export default function GameHub() {
     );
   }
 
-  if (me && !me.hasSubmittedUpdates) {
-    router.push(`/game/${gameId}/setup`);
-    return null;
-  }
+  // ── Finished ────────────────────────────────────────────────────────────────
 
   if (game.status === "finished") {
     router.push(`/game/${gameId}/results`);
     return null;
   }
 
-  if (game.status === "ready") {
+  // ── Creator flow ─────────────────────────────────────────────────────────────
+
+  if (game.myRole === "creator") {
+    // Haven't submitted updates yet
+    if (!me?.hasSubmittedUpdates) {
+      router.push(`/game/${gameId}/setup`);
+      return null;
+    }
+
+    // Waiting for friend to play and/or submit their updates
+    if (game.status !== "ready") {
+      return (
+        <main className="flex-1 flex items-center justify-center px-4 py-16">
+          <div className="max-w-md w-full text-center space-y-6">
+            <div className="text-5xl">&#9989;</div>
+            <h1 className="text-2xl font-bold">Your updates are in!</h1>
+            <p className="text-muted">
+              {!game.friend
+                ? "Now share the link with the friend you want to reconnect with."
+                : `Waiting for ${opponent?.name ?? "your friend"} to finish their turn...`}
+            </p>
+            {!game.friend && <ShareLink gameId={gameId} />}
+            {!game.friend && (
+              <p className="text-xs text-muted/60">
+                This page will update automatically when they join.
+              </p>
+            )}
+          </div>
+        </main>
+      );
+    }
+
+    // Friend is done — creator's turn to play
     if (me?.finishedPlaying) {
       return (
         <main className="flex-1 flex items-center justify-center px-4 py-16">
@@ -195,7 +314,7 @@ export default function GameHub() {
         <div className="max-w-md w-full text-center space-y-6">
           <div className="text-5xl">&#127918;</div>
           <h1 className="text-2xl font-bold">
-            {opponent?.name ?? "Your friend"} is in!
+            {opponent?.name ?? "Your friend"} is ready!
           </h1>
           <p className="text-muted">
             Time to see how well you know each other. For each question about{" "}
@@ -213,22 +332,61 @@ export default function GameHub() {
     );
   }
 
+  // ── Friend flow ──────────────────────────────────────────────────────────────
+
+  // Friend has played the quiz but hasn't submitted their own updates yet —
+  // show the animated transition before routing them to setup
+  if (me?.finishedPlaying && !me.hasSubmittedUpdates) {
+    if (!transitionComplete) {
+      return (
+        <AnimatedLines
+          lines={[
+            "Now it's my turn.",
+            "I'd love to try to guess what you've been up to.",
+            "Can you share some updates with me?",
+          ]}
+          buttonLabel="Share my updates"
+          onButton={() => setTransitionComplete(true)}
+          initialDelay={400}
+          delayBetween={1300}
+        />
+      );
+    }
+    router.push(`/game/${gameId}/setup`);
+    return null;
+  }
+
+  // Friend hasn't played yet — send them straight to the quiz
+  if (!me?.finishedPlaying) {
+    if (game.myQuiz) {
+      router.push(`/game/${gameId}/play`);
+      return null;
+    }
+    // Creator hasn't submitted their updates yet (edge case)
+    return (
+      <main className="flex-1 flex items-center justify-center px-4 py-16">
+        <div className="max-w-md w-full text-center space-y-4">
+          <div className="text-5xl">&#9203;</div>
+          <h1 className="text-2xl font-bold">Almost ready...</h1>
+          <p className="text-muted">
+            Waiting for {opponent?.name ?? "your friend"} to finish setting up the game.
+          </p>
+        </div>
+      </main>
+    );
+  }
+
+  // Friend submitted updates, waiting for creator to play
   return (
     <main className="flex-1 flex items-center justify-center px-4 py-16">
       <div className="max-w-md w-full text-center space-y-6">
-        <div className="text-5xl">&#9989;</div>
-        <h1 className="text-2xl font-bold">Your updates are in!</h1>
+        <div className="text-5xl">&#9203;</div>
+        <h1 className="text-2xl font-bold">
+          Waiting for {opponent?.name ?? "your friend"}
+        </h1>
         <p className="text-muted">
-          {game.friend
-            ? `Waiting for ${opponent?.name ?? "your friend"} to share their updates...`
-            : "Now share the link with the friend you want to reconnect with."}
+          They&apos;re taking the quiz now. Results will appear once they&apos;re done.
         </p>
-        {!game.friend && <ShareLink gameId={gameId} />}
-        {secret && !game.friend && (
-          <p className="text-xs text-muted/60">
-            This page will update automatically when they join.
-          </p>
-        )}
       </div>
     </main>
   );

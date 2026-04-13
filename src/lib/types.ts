@@ -9,7 +9,7 @@ export interface QuizQuestion {
   id: string;
   promptText: string;
   realOption: QuizOption;
-  fakeOption: QuizOption;
+  fakeOptions: QuizOption[];
 }
 
 export interface Player {
@@ -53,7 +53,7 @@ export interface QuizQuestionResult {
   id: string;
   promptText: string;
   realOptionText: string;
-  fakeOptionText: string;
+  fakeOptionTexts: string[];
   myChosenOptionId: string | null;
   correct: boolean;
 }
@@ -71,6 +71,7 @@ export interface GameView {
 }
 
 export const NUM_REAL_UPDATES = 5;
+export const NUM_FAKE_OPTIONS = 2; // fake answers per question, so 3 total options
 
 export const UPDATE_PROMPTS = [
   {

@@ -10,25 +10,40 @@ export default function Setup() {
   const router = useRouter();
   const gameId = params.id as string;
 
+  const [step, setStep] = useState(0);
   const [updates, setUpdates] = useState<string[]>(
     Array(NUM_REAL_UPDATES).fill("")
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  function handleChange(index: number, value: string) {
+  const current = UPDATE_PROMPTS[step];
+  const currentValue = updates[step];
+  const isFilled = currentValue.trim().length > 0;
+  const isLast = step === NUM_REAL_UPDATES - 1;
+
+  function handleChange(value: string) {
     setUpdates((prev) => {
       const next = [...prev];
-      next[index] = value;
+      next[step] = value;
       return next;
     });
   }
 
-  const allFilled = updates.every((u) => u.trim().length > 0);
+  function handleNext() {
+    if (!isFilled) return;
+    if (!isLast) {
+      setStep((s) => s + 1);
+    }
+  }
+
+  function handleBack() {
+    if (step > 0) setStep((s) => s - 1);
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!allFilled) return;
+    if (!isFilled) return;
 
     const secret = getPlayerSecret(gameId);
     if (!secret) {
@@ -62,48 +77,89 @@ export default function Setup() {
   }
 
   return (
-    <main className="flex-1 flex items-start justify-center px-4 py-12">
+    <main className="flex-1 flex items-center justify-center px-4 py-12">
       <div className="max-w-lg w-full space-y-8">
-        <div className="text-center space-y-2">
-          <h1 className="text-3xl font-bold">
-            What&apos;s been going on?
-          </h1>
-          <p className="text-muted">
-            Share 5 updates about your life. Your friend will have to figure out
-            which ones are real.
+
+        {/* Progress bar */}
+        <div className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            {UPDATE_PROMPTS.map((_, i) => (
+              <div
+                key={i}
+                className="h-1.5 flex-1 rounded-full transition-all duration-300"
+                style={{
+                  backgroundColor:
+                    i < step
+                      ? "var(--color-accent)"
+                      : i === step
+                        ? "color-mix(in srgb, var(--color-accent) 45%, transparent)"
+                        : "var(--color-border)",
+                }}
+              />
+            ))}
+          </div>
+          <p className="text-xs text-muted text-right">
+            {step + 1} of {NUM_REAL_UPDATES}
           </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {UPDATE_PROMPTS.map((prompt, i) => (
-            <div key={i} className="space-y-2">
-              <label className="block text-sm font-medium text-foreground">
-                {prompt.prompt}
-              </label>
-              <textarea
-                value={updates[i]}
-                onChange={(e) => handleChange(i, e.target.value)}
-                placeholder={prompt.placeholder}
-                maxLength={200}
-                rows={2}
-                className="w-full px-4 py-3 rounded-xl border border-border bg-surface
-                  resize-none
-                  focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent
-                  placeholder:text-muted/50"
-              />
-            </div>
-          ))}
+        {/* Question */}
+        <div className="space-y-2">
+          <h1 className="text-2xl font-bold text-foreground">
+            {current.prompt}
+          </h1>
+          <p className="text-sm text-muted">
+            Your friend will have to figure out whether this is real or AI-generated.
+          </p>
+        </div>
 
-          <button
-            type="submit"
-            disabled={!allFilled || loading}
-            className="w-full px-6 py-3 text-lg font-medium rounded-xl
-              bg-accent text-white hover:bg-accent-hover
-              disabled:opacity-50 disabled:cursor-not-allowed
-              transition-colors cursor-pointer"
-          >
-            {loading ? "Submitting..." : "Lock It In"}
-          </button>
+        {/* Input */}
+        <form
+          onSubmit={isLast ? handleSubmit : (e) => { e.preventDefault(); handleNext(); }}
+          className="space-y-4"
+        >
+          <textarea
+            key={step}
+            value={currentValue}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder={current.placeholder}
+            maxLength={200}
+            rows={3}
+            autoFocus
+            className="w-full px-4 py-3 rounded-xl border border-border bg-surface
+              resize-none
+              focus:outline-none focus:ring-2 focus:ring-accent/50 focus:border-accent
+              placeholder:text-muted/50"
+          />
+
+          <div className="flex gap-3">
+            {step > 0 && (
+              <button
+                type="button"
+                onClick={handleBack}
+                className="px-5 py-3 font-medium rounded-xl border border-border
+                  text-muted hover:text-foreground hover:border-accent/40
+                  transition-colors cursor-pointer"
+              >
+                Back
+              </button>
+            )}
+
+            <button
+              type="submit"
+              disabled={!isFilled || loading}
+              className="flex-1 px-6 py-3 text-lg font-medium rounded-xl
+                bg-accent text-white hover:bg-accent-hover
+                disabled:opacity-50 disabled:cursor-not-allowed
+                transition-colors cursor-pointer"
+            >
+              {loading
+                ? "Submitting..."
+                : isLast
+                  ? "Lock It In"
+                  : "Next"}
+            </button>
+          </div>
 
           {error && <p className="text-danger text-sm text-center">{error}</p>}
         </form>

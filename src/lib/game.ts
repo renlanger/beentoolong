@@ -26,13 +26,13 @@ function newPlayer(name: string): Player {
 
 function buildQuizQuestions(
   updates: string[],
-  fakes: string[]
+  fakes: string[][]
 ): QuizQuestion[] {
   return UPDATE_PROMPTS.map((prompt, i) => ({
     id: nanoid(12),
     promptText: prompt.quizPrompt,
     realOption: { id: nanoid(12), text: updates[i] },
-    fakeOption: { id: nanoid(12), text: fakes[i] },
+    fakeOptions: (fakes[i] ?? []).map((text) => ({ id: nanoid(12), text })),
   }));
 }
 
@@ -94,36 +94,23 @@ export async function submitUpdates(
   const { player, role } = result;
   if (updates.length !== NUM_REAL_UPDATES)
     throw new Error(`Expected ${NUM_REAL_UPDATES} updates`);
-
-  const alreadyHasQuiz = game.status === "ready" || game.status === "finished";
-  if (player.updates.length > 0 && alreadyHasQuiz)
+  if (player.updates.length > 0)
     throw new Error("Updates already submitted");
 
   player.updates = updates;
 
-  const opponent = getOpponent(game, role);
-  const bothReady = opponent && opponent.updates.length > 0;
+  // Generate quiz questions for this player immediately — the opponent answers them.
+  // This means the friend can play the creator's quiz as soon as they join,
+  // before they've submitted their own updates.
+  const promptsAndAnswers = UPDATE_PROMPTS.map((prompt, i) => ({
+    prompt: prompt.prompt,
+    realAnswer: updates[i],
+  }));
+  const fakes = await generatePairedFakes(player.name, promptsAndAnswers);
+  player.quizQuestions = buildQuizQuestions(updates, fakes);
 
-  if (bothReady) {
-    const promptsAndAnswers = (p: Player) =>
-      UPDATE_PROMPTS.map((prompt, i) => ({
-        prompt: prompt.prompt,
-        realAnswer: p.updates[i],
-      }));
-
-    const [creatorFakes, friendFakes] = await Promise.all([
-      generatePairedFakes(game.creator.name, promptsAndAnswers(game.creator)),
-      generatePairedFakes(game.friend!.name, promptsAndAnswers(game.friend!)),
-    ]);
-
-    game.creator.quizQuestions = buildQuizQuestions(
-      game.creator.updates,
-      creatorFakes
-    );
-    game.friend!.quizQuestions = buildQuizQuestions(
-      game.friend!.updates,
-      friendFakes
-    );
+  // Once the friend submits their updates, the creator can take the quiz
+  if (role === "friend") {
     game.status = "ready";
   }
 
@@ -138,8 +125,6 @@ export async function submitGuesses(
 ): Promise<Game> {
   const game = await getGame(gameId);
   if (!game) throw new Error("Game not found");
-  if (game.status !== "ready" && game.status !== "finished")
-    throw new Error("Game not ready to play");
 
   const result = resolvePlayerBySecret(game, secret);
   if (!result) throw new Error("Invalid player");
@@ -148,7 +133,8 @@ export async function submitGuesses(
   if (player.finishedPlaying) throw new Error("Already submitted guesses");
 
   const opponent = getOpponent(game, role);
-  if (!opponent) throw new Error("No opponent");
+  if (!opponent || opponent.quizQuestions.length === 0)
+    throw new Error("Quiz not ready yet");
 
   player.guesses = guesses;
   player.score = opponent.quizQuestions.reduce((score, q) => {
@@ -164,10 +150,13 @@ export async function submitGuesses(
   return game;
 }
 
-function shuffledOptions(q: QuizQuestion): [QuizOption, QuizOption] {
-  return Math.random() < 0.5
-    ? [q.realOption, q.fakeOption]
-    : [q.fakeOption, q.realOption];
+function shuffledOptions(q: QuizQuestion): QuizOption[] {
+  const all = [q.realOption, ...q.fakeOptions];
+  for (let i = all.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [all[i], all[j]] = [all[j], all[i]];
+  }
+  return all;
 }
 
 export function buildGameView(game: Game, secret: string): GameView {
@@ -189,14 +178,11 @@ export function buildGameView(game: Game, secret: string): GameView {
     !me.finishedPlaying
   ) {
     myQuiz = opponent.quizQuestions.map((q) => {
-      const [a, b] = shuffledOptions(q);
+      const options = shuffledOptions(q);
       return {
         id: q.id,
         promptText: q.promptText.replace("____", opponent.name),
-        options: [
-          { id: a.id, text: a.text },
-          { id: b.id, text: b.text },
-        ],
+        options: options.map((o) => ({ id: o.id, text: o.text })),
       };
     });
   }
@@ -207,7 +193,7 @@ export function buildGameView(game: Game, secret: string): GameView {
       id: q.id,
       promptText: q.promptText.replace("____", opponent.name),
       realOptionText: q.realOption.text,
-      fakeOptionText: q.fakeOption.text,
+      fakeOptionTexts: q.fakeOptions.map((o) => o.text),
       myChosenOptionId: me.guesses[q.id] ?? null,
       correct: me.guesses[q.id] === q.realOption.id,
     }));
@@ -219,7 +205,7 @@ export function buildGameView(game: Game, secret: string): GameView {
       id: q.id,
       promptText: q.promptText.replace("____", me.name),
       realOptionText: q.realOption.text,
-      fakeOptionText: q.fakeOption.text,
+      fakeOptionTexts: q.fakeOptions.map((o) => o.text),
       myChosenOptionId: opponent.guesses[q.id] ?? null,
       correct: opponent.guesses[q.id] === q.realOption.id,
     }));

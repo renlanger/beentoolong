@@ -28,11 +28,6 @@ export default function Play() {
 
       const game: GameView = await res.json();
 
-      if (game.status !== "ready" && game.status !== "finished") {
-        router.push(`/game/${gameId}`);
-        return;
-      }
-
       if (!game.myQuiz) {
         router.push(`/game/${gameId}`);
         return;
