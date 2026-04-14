@@ -63,6 +63,7 @@ function buildCustomQuizQuestions(
     promptText: q.quizPrompt,
     realOption: { id: nanoid(12), text: updates[i] },
     fakeOptions: (fakes[i] ?? []).map((text) => ({ id: nanoid(12), text })),
+    originalQuestion: q.originalQuestion,
   }));
 }
 
@@ -93,6 +94,7 @@ function quizToPublic(questions: QuizQuestion[], opponentName: string): PublicQu
       id: q.id,
       promptText: q.promptText.replace("____", opponentName),
       options: options.map((o) => ({ id: o.id, text: o.text })),
+      ...(q.originalQuestion ? { originalQuestion: q.originalQuestion } : {}),
     };
   });
 }

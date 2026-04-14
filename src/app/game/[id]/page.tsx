@@ -334,8 +334,8 @@ export default function GameHub() {
         <AnimatedLines
           lines={[
             "Hey,",
-            "it's been too long.",
-            `${game.creator.name} has been wanting to connect with you.`,
+            "time to re:connect.",
+            `${game.creator.name} wants to catch up with you.`,
             "Can you guess what they've been up to?",
           ]}
           buttonLabel="Let's find out"

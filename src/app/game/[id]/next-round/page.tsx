@@ -406,6 +406,15 @@ function RoundQuiz({
           <p className="text-xs text-muted">{currentIndex + 1} of {questions.length}</p>
         </div>
 
+        {current.originalQuestion && (
+          <div className="p-3 rounded-xl bg-surface border border-border text-center">
+            <p className="text-xs text-muted font-medium uppercase tracking-wide mb-1">
+              Follow-up to
+            </p>
+            <p className="text-sm text-muted italic">&ldquo;{current.originalQuestion}&rdquo;</p>
+          </div>
+        )}
+
         <div className="text-center">
           <p className="text-lg font-medium">{current.promptText}</p>
         </div>
@@ -575,16 +584,24 @@ export default function NextRound() {
     if (phase === "selecting") loadSuggestions();
   }, [phase, loadSuggestions]);
 
-  // Sync phase with polled game state — but never override "submitting" (we own that transition)
+  // Sync phase with polled game state.
+  // "selecting", "submitting", and "waiting" mean we're deliberately starting a NEW round —
+  // never revert backwards to "score" (which belongs to the previous finished round).
   useEffect(() => {
     if (!game) return;
     const round = game.activeRound;
 
-    // While we're actively submitting, don't let polling override the phase
+    // While submitting questions, don't let polling override
     if (phase === "submitting") return;
 
-    if (!round) {
-      // No active round yet — stay on selecting
+    if (!round || round.status === "finished") {
+      // No active round, or the latest round is already finished.
+      // If we're in "selecting/waiting", we're starting a fresh round — leave it alone.
+      if (phase === "selecting" || phase === "waiting") return;
+      // Otherwise show score for the finished round
+      if (round?.myResults && round.myRoundScore !== null) {
+        setPhase("score");
+      }
       return;
     }
 
@@ -604,7 +621,6 @@ export default function NextRound() {
     }
     if (status === "answering") {
       if (round.myRoundQuestions && round.myRoundQuestions.length > 0) {
-        // Only transition to answering if we haven't already submitted answers
         if (phase !== "waiting-quiz") setPhase("answering");
       } else {
         setPhase("waiting-quiz");
@@ -612,13 +628,12 @@ export default function NextRound() {
       return;
     }
     if (status === "collecting") {
-      if (myQuestionsSubmitted && !opponentQuestionsSubmitted) {
-        setPhase("waiting");
-        return;
-      }
-      // Both submitted simultaneously → might jump straight to answering
       if (myQuestionsSubmitted && opponentQuestionsSubmitted) {
         setPhase("answering");
+        return;
+      }
+      if (myQuestionsSubmitted && !opponentQuestionsSubmitted) {
+        setPhase("waiting");
         return;
       }
     }

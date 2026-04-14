@@ -123,9 +123,9 @@ export default function Results() {
 
         {/* Play another round CTA */}
         <div className="rounded-2xl bg-accent/5 border border-accent/20 p-6 text-center space-y-3">
-          <p className="font-semibold text-foreground">Want to know more? Go deeper?</p>
+          <p className="font-semibold text-foreground">Keep re:connecting</p>
           <p className="text-muted text-sm">
-            Play another round — pick follow-up questions based on {opponent.name}&apos;s answers and see how well you really know each other.
+            Play another round — ask follow-up questions, go deeper, and keep finding out how much you really know each other.
           </p>
           <button
             onClick={() => router.push(`/game/${gameId}/next-round`)}

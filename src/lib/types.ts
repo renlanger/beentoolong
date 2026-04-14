@@ -10,6 +10,8 @@ export interface QuizQuestion {
   promptText: string;
   realOption: QuizOption;
   fakeOptions: QuizOption[];
+  /** For follow-up round questions — what the original question was */
+  originalQuestion?: string;
 }
 
 export interface Player {
@@ -77,6 +79,8 @@ export interface PublicQuizQuestion {
   id: string;
   promptText: string;
   options: PublicQuizOption[];
+  /** For follow-up round questions — original question for context */
+  originalQuestion?: string;
 }
 
 export interface PublicPlayer {

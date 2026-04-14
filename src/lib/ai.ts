@@ -13,16 +13,17 @@ export async function generatePairedFakes(
   const { text } = await generateText({
     model: openai("gpt-4o-mini"),
     temperature: 0.9,
-    prompt: `You are helping create a social reconnection game. Two old friends are catching up.
+    prompt: `You are helping create a social reconnection game where two old friends quiz each other.
 
-For each question below, ${playerName} gave a REAL answer. Generate ${numFakes} convincing FAKE answers that their friend might believe instead.
+For each question below, ${playerName} gave a REAL answer. Generate ${numFakes} FAKE answers that would fool their friend.
 
-Rules:
-- Match the tone and specificity of the real answer
-- Make each fake plausible for someone at a similar life stage — not absurd
-- The fakes should be genuine alternatives, not obviously wrong
-- Keep them roughly the same length as the real answer
-- Make the ${numFakes} fakes distinct from each other
+Critical rules:
+- Read the question carefully and generate fakes that DIRECTLY answer that same question
+- The fakes must be plausible responses to the EXACT question asked — not generic life facts
+- Match the tone, format, and specificity of the real answer (e.g. if real is one sentence, fakes should be one sentence; if real mentions a specific detail, fakes should too)
+- Make each fake plausible — someone who knows ${playerName} casually might genuinely believe any of them
+- The fakes should be distinct from each other AND from the real answer
+- Do NOT produce fakes that are obviously unrelated to what was asked
 
 ${promptsAndAnswers
   .map(

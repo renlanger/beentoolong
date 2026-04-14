@@ -13,7 +13,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Been Too Long",
+  title: "Re:connect",
   description:
     "A game for reconnecting with old friends. Share life updates, guess what's real, and see how well you really know each other.",
 };
