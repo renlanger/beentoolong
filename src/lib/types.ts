@@ -29,6 +29,9 @@ export interface RoundQuestion {
   text: string;        // shown to the person answering, e.g. "What do you love most about Austin?"
   quizPrompt: string;  // shown during quiz, e.g. "What does ____ love most about where they live?"
   placeholder: string;
+  // Context shown to the person answering — what original question this follows up on
+  originalQuestion?: string;
+  originalAnswer?: string;
 }
 
 export interface RoundPlayerData {
@@ -127,6 +130,8 @@ export interface GameView {
   myResults: QuizQuestionResult[] | null;
   opponentResults: QuizQuestionResult[] | null;
   cumulativeScore: { creator: number; friend: number };
+  /** Total questions per player across all completed rounds (5 per round) */
+  totalQuestions: number;
   activeRound: PublicExtraRound | null;
 }
 

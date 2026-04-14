@@ -12,25 +12,31 @@ function Scoreboard({
   friendName,
   creatorScore,
   friendScore,
-  round,
+  totalQuestions,
 }: {
   creatorName: string;
   friendName: string | null;
   creatorScore: number;
   friendScore: number;
-  round: number;
+  totalQuestions: number;
 }) {
   if (!friendName) return null;
+  const creatorPct = totalQuestions > 0 ? Math.round((creatorScore / totalQuestions) * 100) : null;
+  const friendPct = totalQuestions > 0 ? Math.round((friendScore / totalQuestions) * 100) : null;
   return (
     <div className="fixed top-0 left-0 right-0 z-50 flex justify-center px-4 py-2 pointer-events-none">
       <div className="bg-surface/90 backdrop-blur border border-border rounded-full px-5 py-2
         flex items-center gap-4 text-sm shadow-sm pointer-events-auto">
         <span className="font-semibold text-foreground">{creatorName}</span>
-        <span className="text-accent font-bold">{creatorScore}</span>
+        <span className="text-accent font-bold">
+          {creatorScore}/{totalQuestions}
+          {creatorPct !== null && <span className="text-muted font-normal text-xs ml-1">({creatorPct}%)</span>}
+        </span>
         <span className="text-muted/50">·</span>
-        <span className="text-muted text-xs">Round {round}</span>
-        <span className="text-muted/50">·</span>
-        <span className="text-accent font-bold">{friendScore}</span>
+        <span className="text-accent font-bold">
+          {friendScore}/{totalQuestions}
+          {friendPct !== null && <span className="text-muted font-normal text-xs ml-1">({friendPct}%)</span>}
+        </span>
         <span className="font-semibold text-foreground">{friendName}</span>
       </div>
     </div>
@@ -316,7 +322,7 @@ export default function GameHub() {
       friendName={game.friend?.name ?? null}
       creatorScore={game.cumulativeScore.creator}
       friendScore={game.cumulativeScore.friend}
-      round={1}
+      totalQuestions={game.totalQuestions}
     />
   );
 

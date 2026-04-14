@@ -79,18 +79,16 @@ function getOpponent(game: Game, role: "creator" | "friend"): Player | null {
   return role === "creator" ? game.friend : game.creator;
 }
 
-function shuffledOptions(q: QuizQuestion): QuizOption[] {
+// Sort options by ID for a stable, consistent order on every render/poll.
+// IDs are nanoid-generated so the order is non-predictable but never changes.
+function sortedOptions(q: QuizQuestion): QuizOption[] {
   const all = [q.realOption, ...q.fakeOptions];
-  for (let i = all.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [all[i], all[j]] = [all[j], all[i]];
-  }
-  return all;
+  return all.sort((a, b) => a.id.localeCompare(b.id));
 }
 
 function quizToPublic(questions: QuizQuestion[], opponentName: string): PublicQuizQuestion[] {
   return questions.map((q) => {
-    const options = shuffledOptions(q);
+    const options = sortedOptions(q);
     return {
       id: q.id,
       promptText: q.promptText.replace("____", opponentName),
@@ -379,6 +377,9 @@ export function buildGameView(game: Game, secret: string): GameView {
   // Ensure legacy games have new fields
   const rounds = game.rounds ?? [];
   const cumulativeScore = game.cumulativeScore ?? { creator: 0, friend: 0 };
+  // 5 questions per completed round (base game counts as 1 round)
+  const finishedExtraRounds = rounds.filter((r) => r.status === "finished").length;
+  const totalQuestions = 5 * (1 + finishedExtraRounds);
 
   // Base game quiz
   let myQuiz: PublicQuizQuestion[] | null = null;
@@ -508,6 +509,7 @@ export function buildGameView(game: Game, secret: string): GameView {
     myResults,
     opponentResults,
     cumulativeScore,
+    totalQuestions,
     activeRound,
   };
 }

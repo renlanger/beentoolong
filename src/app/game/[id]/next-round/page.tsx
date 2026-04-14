@@ -15,6 +15,9 @@ interface PendingQuestion {
   type: OptionType;
   text: string;
   quizPrompt: string;
+  // Context for whoever has to answer this question
+  originalQuestion: string;
+  originalAnswer: string;
 }
 
 function QuestionSelector({
@@ -37,18 +40,24 @@ function QuestionSelector({
   isLast: boolean;
 }) {
   const [selected, setSelected] = useState<OptionType | null>(null);
+  const [followUpText, setFollowUpText] = useState("");
   const [ownText, setOwnText] = useState("");
-  const [editedFollowUp, setEditedFollowUp] = useState(suggestion?.followUp ?? "");
   const [editedNew, setEditedNew] = useState(suggestion?.newQuestion ?? "");
 
   useEffect(() => {
-    setEditedFollowUp(suggestion?.followUp ?? "");
     setEditedNew(suggestion?.newQuestion ?? "");
   }, [suggestion]);
 
+  // Reset when moving to next question
+  useEffect(() => {
+    setSelected(null);
+    setFollowUpText("");
+    setOwnText("");
+  }, [index]);
+
   function canSubmit() {
     if (!selected) return false;
-    if (selected === "followUp") return editedFollowUp.trim().length > 0;
+    if (selected === "followUp") return followUpText.trim().length > 0;
     if (selected === "own") return ownText.trim().length > 0;
     if (selected === "aiNew") return editedNew.trim().length > 0;
     return false;
@@ -59,8 +68,8 @@ function QuestionSelector({
     let text = "";
     let quizPrompt = "";
     if (selected === "followUp") {
-      text = editedFollowUp.trim();
-      quizPrompt = suggestion?.followUpQuiz ?? `What does ____ say about: ${text}`;
+      text = followUpText.trim();
+      quizPrompt = `What does ____ say: "${text}"`;
     } else if (selected === "own") {
       text = ownText.trim();
       quizPrompt = `What does ____ say: "${text}"`;
@@ -68,7 +77,13 @@ function QuestionSelector({
       text = editedNew.trim();
       quizPrompt = suggestion?.newQuestionQuiz ?? `What does ____ say about: ${text}`;
     }
-    onNext({ type: selected!, text, quizPrompt });
+    onNext({
+      type: selected!,
+      text,
+      quizPrompt,
+      originalQuestion,
+      originalAnswer: realAnswer,
+    });
   }
 
   const optionBase = "w-full text-left p-4 rounded-xl border-2 transition-all cursor-pointer";
@@ -109,47 +124,45 @@ function QuestionSelector({
         <p className="text-lg font-semibold">Now ask them something new about this:</p>
 
         <div className="space-y-3">
-          {/* Option A: Follow-up */}
+          {/* Option A: Write your own follow-up */}
           <button
             className={`${optionBase} ${selected === "followUp" ? optionActive : optionIdle}`}
             onClick={() => setSelected("followUp")}
           >
-            <p className="text-xs font-semibold text-accent mb-1">A — Follow-up</p>
-            {suggestion ? (
-              selected === "followUp" ? (
-                <textarea
-                  value={editedFollowUp}
-                  onChange={(e) => setEditedFollowUp(e.target.value)}
-                  onClick={(e) => e.stopPropagation()}
-                  rows={2}
-                  className="w-full text-sm bg-transparent resize-none focus:outline-none"
-                />
-              ) : (
-                <p className="text-sm">{suggestion.followUp}</p>
-              )
-            ) : (
-              <p className="text-sm text-muted">Loading suggestion...</p>
-            )}
-          </button>
-
-          {/* Option B: Your own */}
-          <button
-            className={`${optionBase} ${selected === "own" ? optionActive : optionIdle}`}
-            onClick={() => setSelected("own")}
-          >
-            <p className="text-xs font-semibold text-accent mb-1">B — Ask your own question</p>
-            {selected === "own" ? (
+            <p className="text-xs font-semibold text-accent mb-1">A — Write a follow-up</p>
+            {selected === "followUp" ? (
               <textarea
-                value={ownText}
-                onChange={(e) => setOwnText(e.target.value)}
+                value={followUpText}
+                onChange={(e) => setFollowUpText(e.target.value)}
                 onClick={(e) => e.stopPropagation()}
-                placeholder="Type your question..."
+                placeholder={`Ask ${opponentName} something related to their answer...`}
                 rows={2}
                 autoFocus
                 className="w-full text-sm bg-transparent resize-none focus:outline-none placeholder:text-muted/50"
               />
             ) : (
-              <p className="text-sm text-muted">Write whatever you want to ask them</p>
+              <p className="text-sm text-muted">Write your own follow-up to their answer</p>
+            )}
+          </button>
+
+          {/* Option B: Unrelated question */}
+          <button
+            className={`${optionBase} ${selected === "own" ? optionActive : optionIdle}`}
+            onClick={() => setSelected("own")}
+          >
+            <p className="text-xs font-semibold text-accent mb-1">B — Ask an unrelated question</p>
+            {selected === "own" ? (
+              <textarea
+                value={ownText}
+                onChange={(e) => setOwnText(e.target.value)}
+                onClick={(e) => e.stopPropagation()}
+                placeholder="Ask anything at all..."
+                rows={2}
+                autoFocus
+                className="w-full text-sm bg-transparent resize-none focus:outline-none placeholder:text-muted/50"
+              />
+            ) : (
+              <p className="text-sm text-muted">Ask something completely different</p>
             )}
           </button>
 
@@ -172,7 +185,7 @@ function QuestionSelector({
                 <p className="text-sm">{suggestion.newQuestion}</p>
               )
             ) : (
-              <p className="text-sm text-muted">Loading suggestion...</p>
+              <p className="text-sm text-muted">Loading AI suggestion...</p>
             )}
           </button>
         </div>
@@ -261,6 +274,20 @@ function RoundSetup({
           </div>
           <p className="text-xs text-muted text-right">{step + 1} of {questions.length}</p>
         </div>
+
+        {/* Show original question context if available */}
+        {(current.originalQuestion || current.originalAnswer) && (
+          <div className="p-3 rounded-xl bg-surface border border-border space-y-1">
+            {current.originalQuestion && (
+              <p className="text-xs text-muted font-medium uppercase tracking-wide">
+                Following up on: &ldquo;{current.originalQuestion}&rdquo;
+              </p>
+            )}
+            {current.originalAnswer && (
+              <p className="text-sm text-muted italic">&ldquo;{current.originalAnswer}&rdquo;</p>
+            )}
+          </div>
+        )}
 
         <div className="space-y-2">
           <h1 className="text-2xl font-bold">{current.text}</h1>
@@ -412,6 +439,7 @@ function RoundScoreReveal({
   results,
   myTotal,
   opponentTotal,
+  totalQuestions,
   onPlayAgain,
   onDone,
 }: {
@@ -422,31 +450,42 @@ function RoundScoreReveal({
   results: QuizQuestionResult[];
   myTotal: number;
   opponentTotal: number;
+  totalQuestions: number;
   onPlayAgain: () => void;
   onDone: () => void;
 }) {
-  const total = results.length;
+  const roundTotal = results.length;
+  const myPct = Math.round((myTotal / totalQuestions) * 100);
+  const oppPct = Math.round((opponentTotal / totalQuestions) * 100);
 
   return (
     <main className="flex-1 flex items-start justify-center px-4 py-12">
       <div className="max-w-lg w-full space-y-8">
         <div className="text-center space-y-3">
-          <div className="text-5xl">{myScore >= total / 2 ? "⭐" : "💫"}</div>
+          <div className="text-5xl">{myScore >= roundTotal / 2 ? "⭐" : "💫"}</div>
           <h1 className="text-3xl font-bold">Round result</h1>
           <p className="text-muted">
-            You got {myScore}/{total} right about {opponentName}.
-            {opponentScore !== null && ` They got ${opponentScore}/${total} right about you.`}
+            You got {myScore}/{roundTotal} right about {opponentName}.
+            {opponentScore !== null && ` They got ${opponentScore}/${roundTotal} right about you.`}
           </p>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 text-center">
-          <div className="bg-surface border border-border rounded-xl p-4">
-            <p className="text-xs text-muted mb-1">Total: {myName}</p>
-            <p className="text-3xl font-bold text-accent">{myTotal}</p>
-          </div>
-          <div className="bg-surface border border-border rounded-xl p-4">
-            <p className="text-xs text-muted mb-1">Total: {opponentName}</p>
-            <p className="text-3xl font-bold text-accent">{opponentTotal}</p>
+        {/* Cumulative scoreboard */}
+        <div className="rounded-xl border border-border bg-surface p-4 space-y-2">
+          <p className="text-xs text-muted font-medium uppercase tracking-wide text-center mb-3">
+            Running total — {totalQuestions} questions played
+          </p>
+          <div className="grid grid-cols-2 gap-4 text-center">
+            <div>
+              <p className="text-xs text-muted mb-1">{myName}</p>
+              <p className="text-3xl font-bold text-accent">{myTotal}<span className="text-base text-muted font-normal">/{totalQuestions}</span></p>
+              <p className="text-sm text-muted">{myPct}%</p>
+            </div>
+            <div>
+              <p className="text-xs text-muted mb-1">{opponentName}</p>
+              <p className="text-3xl font-bold text-accent">{opponentTotal}<span className="text-base text-muted font-normal">/{totalQuestions}</span></p>
+              <p className="text-sm text-muted">{oppPct}%</p>
+            </div>
           </div>
         </div>
 
@@ -491,6 +530,7 @@ function RoundScoreReveal({
 
 type Phase =
   | "selecting"     // generating questions for opponent
+  | "submitting"    // questions sent, waiting for API to confirm
   | "waiting"       // waiting for opponent to submit their questions
   | "answering"     // answering opponent's questions
   | "waiting-quiz"  // waiting for both to answer before quiz
@@ -510,12 +550,11 @@ export default function NextRound() {
   const [pendingQuestions, setPendingQuestions] = useState<PendingQuestion[]>([]);
   const [suggestions, setSuggestions] = useState<RoundSuggestion[] | null>(null);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
-  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const secret = getPlayerSecret(gameId) ?? "";
 
-  // Load AI suggestions on mount
+  // Load AI suggestions on mount / when entering selecting phase
   const loadSuggestions = useCallback(async () => {
     if (suggestionsLoading || suggestions) return;
     setSuggestionsLoading(true);
@@ -536,10 +575,13 @@ export default function NextRound() {
     if (phase === "selecting") loadSuggestions();
   }, [phase, loadSuggestions]);
 
-  // Sync phase with game state
+  // Sync phase with polled game state — but never override "submitting" (we own that transition)
   useEffect(() => {
     if (!game) return;
     const round = game.activeRound;
+
+    // While we're actively submitting, don't let polling override the phase
+    if (phase === "submitting") return;
 
     if (!round) {
       // No active round yet — stay on selecting
@@ -552,7 +594,7 @@ export default function NextRound() {
       setPhase("score");
       return;
     }
-    if (myQuiz) {
+    if (myQuiz && phase !== "quiz") {
       setPhase("quiz");
       return;
     }
@@ -562,7 +604,8 @@ export default function NextRound() {
     }
     if (status === "answering") {
       if (round.myRoundQuestions && round.myRoundQuestions.length > 0) {
-        setPhase("answering");
+        // Only transition to answering if we haven't already submitted answers
+        if (phase !== "waiting-quiz") setPhase("answering");
       } else {
         setPhase("waiting-quiz");
       }
@@ -573,11 +616,16 @@ export default function NextRound() {
         setPhase("waiting");
         return;
       }
+      // Both submitted simultaneously → might jump straight to answering
+      if (myQuestionsSubmitted && opponentQuestionsSubmitted) {
+        setPhase("answering");
+        return;
+      }
     }
-  }, [game]);
+  }, [game, phase]);
 
   async function handleQuestionsComplete(allQuestions: PendingQuestion[]) {
-    setSubmitting(true);
+    setPhase("submitting");
     setSubmitError(null);
     try {
       const questions: RoundQuestion[] = allQuestions.map((q) => ({
@@ -585,6 +633,8 @@ export default function NextRound() {
         text: q.text,
         quizPrompt: q.quizPrompt,
         placeholder: "Your answer...",
+        originalQuestion: q.originalQuestion,
+        originalAnswer: q.originalAnswer,
       }));
 
       const res = await fetch(`/api/games/${gameId}/rounds`, {
@@ -599,8 +649,7 @@ export default function NextRound() {
       setPhase("waiting");
     } catch (err) {
       setSubmitError(err instanceof Error ? err.message : "Something went wrong");
-    } finally {
-      setSubmitting(false);
+      setPhase("selecting"); // Go back so they can retry
     }
   }
 
@@ -635,17 +684,32 @@ export default function NextRound() {
   const round = game.activeRound;
   const myName = me.name;
   const opponentName = opponent.name;
+  const myTotal = game.myRole === "creator" ? game.cumulativeScore.creator : game.cumulativeScore.friend;
+  const opponentTotal = game.myRole === "creator" ? game.cumulativeScore.friend : game.cumulativeScore.creator;
+
+  // ── Submitting ─────────────────────────────────────────────────────────────
+
+  if (phase === "submitting") {
+    return (
+      <main className="flex-1 flex items-center justify-center px-4 py-16">
+        <div className="max-w-md w-full text-center space-y-6">
+          <div className="text-5xl">✉️</div>
+          <h1 className="text-2xl font-bold">Sending your questions...</h1>
+          {submitError && <p className="text-danger text-sm">{submitError}</p>}
+        </div>
+      </main>
+    );
+  }
 
   // ── Selecting: generate questions ──────────────────────────────────────────
 
   if (phase === "selecting") {
-    const opponentQA = round?.opponentOriginalQA ?? game.activeRound?.opponentOriginalQA;
-    // myResults[i].realOptionText IS the opponent's real answer (the correct option in the quiz about them)
+    // Use myResults (my guesses about opponent) — realOptionText IS the opponent's real answer
     const qa = game.myResults?.map((r, i) => ({
       index: i,
       question: r.promptText,
       realAnswer: r.realOptionText,
-    })) ?? opponentQA ?? [];
+    })) ?? round?.opponentOriginalQA ?? [];
 
     if (qa.length === 0) {
       return (
@@ -660,24 +724,33 @@ export default function NextRound() {
     if (questionStep < qa.length) {
       const item = qa[questionStep];
       return (
-        <QuestionSelector
-          index={questionStep}
-          total={qa.length}
-          originalQuestion={item.question}
-          realAnswer={item.realAnswer}
-          suggestion={suggestions?.[questionStep] ?? null}
-          opponentName={opponentName}
-          isLast={questionStep === qa.length - 1}
-          onNext={(q) => {
-            const updated = [...pendingQuestions, q];
-            if (questionStep < qa.length - 1) {
-              setPendingQuestions(updated);
-              setQuestionStep((s) => s + 1);
-            } else {
-              handleQuestionsComplete(updated);
-            }
-          }}
-        />
+        <>
+          {submitError && (
+            <div className="fixed top-4 left-0 right-0 flex justify-center z-50">
+              <p className="bg-danger/10 text-danger border border-danger/20 px-4 py-2 rounded-lg text-sm">
+                {submitError}
+              </p>
+            </div>
+          )}
+          <QuestionSelector
+            index={questionStep}
+            total={qa.length}
+            originalQuestion={item.question}
+            realAnswer={item.realAnswer}
+            suggestion={suggestions?.[questionStep] ?? null}
+            opponentName={opponentName}
+            isLast={questionStep === qa.length - 1}
+            onNext={(q) => {
+              const updated = [...pendingQuestions, q];
+              if (questionStep < qa.length - 1) {
+                setPendingQuestions(updated);
+                setQuestionStep((s) => s + 1);
+              } else {
+                handleQuestionsComplete(updated);
+              }
+            }}
+          />
+        </>
       );
     }
   }
@@ -693,7 +766,6 @@ export default function NextRound() {
           <p className="text-muted">
             Waiting for {opponentName} to send their questions for you...
           </p>
-          {submitError && <p className="text-danger text-sm">{submitError}</p>}
         </div>
       </main>
     );
@@ -772,8 +844,9 @@ export default function NextRound() {
         myName={myName}
         opponentName={opponentName}
         results={round.myResults}
-        myTotal={game.myRole === "creator" ? game.cumulativeScore.creator : game.cumulativeScore.friend}
-        opponentTotal={game.myRole === "creator" ? game.cumulativeScore.friend : game.cumulativeScore.creator}
+        myTotal={myTotal}
+        opponentTotal={opponentTotal}
+        totalQuestions={game.totalQuestions}
         onPlayAgain={() => {
           setPhase("selecting");
           setQuestionStep(0);

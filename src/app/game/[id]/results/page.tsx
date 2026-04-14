@@ -70,12 +70,15 @@ export default function Results() {
   const opponent = game.myRole === "creator" ? game.friend : game.creator;
   if (!me || !opponent) return null;
 
-  const myScore = me.score ?? 0;
-  const theirScore = opponent.score ?? 0;
-  const totalQuestions = game.myResults?.length ?? 0;
+  const myScore = game.myRole === "creator" ? game.cumulativeScore.creator : game.cumulativeScore.friend;
+  const theirScore = game.myRole === "creator" ? game.cumulativeScore.friend : game.cumulativeScore.creator;
+  const totalQuestions = game.totalQuestions;
 
   const iWon = myScore > theirScore;
   const tied = myScore === theirScore;
+
+  const myPct = totalQuestions > 0 ? Math.round((myScore / totalQuestions) * 100) : 0;
+  const theirPct = totalQuestions > 0 ? Math.round((theirScore / totalQuestions) * 100) : 0;
 
   let winnerEmoji = tied ? "🤝" : iWon ? "🏆" : "🌟";
   let verdict: string;
@@ -105,6 +108,7 @@ export default function Results() {
           }`}>
             <p className="text-sm text-muted mb-1">{me.name} {me.isMe ? "(you)" : ""}</p>
             <p className="text-4xl font-bold text-accent">{myScore}<span className="text-lg text-muted font-normal">/{totalQuestions}</span></p>
+            <p className="text-sm text-muted">{myPct}%</p>
             {!tied && iWon && <p className="text-xs text-accent font-medium mt-1">winner ✓</p>}
           </div>
           <div className={`bg-surface border-2 rounded-xl p-5 text-center transition-all ${
@@ -112,6 +116,7 @@ export default function Results() {
           }`}>
             <p className="text-sm text-muted mb-1">{opponent.name}</p>
             <p className="text-4xl font-bold text-accent">{theirScore}<span className="text-lg text-muted font-normal">/{totalQuestions}</span></p>
+            <p className="text-sm text-muted">{theirPct}%</p>
             {!tied && !iWon && <p className="text-xs text-accent font-medium mt-1">winner ✓</p>}
           </div>
         </div>
