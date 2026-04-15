@@ -14,11 +14,15 @@ export default function Play() {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [guesses, setGuesses] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
   const [loading, setLoading] = useState(true);
   const [opponentName, setOpponentName] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const fetchQuiz = useCallback(async () => {
+    // Don't re-fetch if we already submitted — prevents flash back to question 1
+    if (submitted) return;
+
     const secret = getPlayerSecret(gameId) ?? "";
     try {
       const res = await fetch(
@@ -42,7 +46,7 @@ export default function Play() {
     } finally {
       setLoading(false);
     }
-  }, [gameId, router]);
+  }, [gameId, router, submitted]);
 
   useEffect(() => {
     fetchQuiz();
@@ -73,6 +77,7 @@ export default function Play() {
         throw new Error(data.error ?? "Failed to submit");
       }
 
+      setSubmitted(true);
       router.push(`/game/${gameId}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to submit guesses");
@@ -104,7 +109,7 @@ export default function Play() {
     );
   }
 
-  if (submitting) {
+  if (submitting || submitted) {
     return (
       <main className="flex-1 flex items-center justify-center">
         <div className="text-center space-y-4">

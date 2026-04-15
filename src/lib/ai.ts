@@ -20,10 +20,21 @@ For each question below, ${playerName} gave a REAL answer. Generate ${numFakes} 
 Critical rules:
 - Read the question carefully and generate fakes that DIRECTLY answer that same question
 - The fakes must be plausible responses to the EXACT question asked — not generic life facts
-- Match the tone, format, and specificity of the real answer (e.g. if real is one sentence, fakes should be one sentence; if real mentions a specific detail, fakes should too)
+- Match the tone, format, and length of the real answer (e.g. if real is one sentence, fakes should be one sentence; if real mentions a specific detail, fakes should too)
 - Make each fake plausible — someone who knows ${playerName} casually might genuinely believe any of them
 - The fakes should be distinct from each other AND from the real answer
 - Do NOT produce fakes that are obviously unrelated to what was asked
+
+IMPORTANT — category matching:
+- If the real answer names a specific thing in a category (a country, a city, a job title, a hobby, etc.), the fakes MUST be OTHER things in that SAME category at the SAME level of specificity.
+  Example: Real answer "Japan" → fakes should be other countries like "Portugal" or "New Zealand", NOT cities within Japan like "Kyoto" or "Tokyo".
+  Example: Real answer "Austin, Texas" → fakes should be other cities like "Denver, Colorado" or "Portland, Oregon", NOT neighborhoods within Austin.
+  Example: Real answer "rock climbing" → fakes should be other hobbies like "woodworking" or "pottery", NOT related activities like "bouldering" or "indoor climbing".
+
+IMPORTANT — avoid synonyms:
+- If the real answer expresses a sentiment or qualitative statement, the fakes must express DIFFERENT sentiments or situations, NOT rephrase the same one.
+  Example: Real answer "He's doing great" → fakes should be meaningfully different like "He just retired last year" or "He moved to Florida", NOT synonyms like "He's thriving" or "He's doing wonderful".
+  Example: Real answer "I love it" → fakes should be like "It's been a struggle honestly" or "Still adjusting", NOT "It's amazing" or "It's fantastic".
 
 ${promptsAndAnswers
   .map(

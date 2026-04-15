@@ -104,14 +104,20 @@ function buildResults(
   myName: string,
   opponentGuesses: Record<string, string>
 ): QuizQuestionResult[] {
-  return questionsAboutMe.map((q) => ({
-    id: q.id,
-    promptText: q.promptText.replace("____", myName),
-    realOptionText: q.realOption.text,
-    fakeOptionTexts: q.fakeOptions.map((o) => o.text),
-    myChosenOptionId: opponentGuesses[q.id] ?? null,
-    correct: opponentGuesses[q.id] === q.realOption.id,
-  }));
+  return questionsAboutMe.map((q) => {
+    const chosenId = opponentGuesses[q.id] ?? null;
+    const allOptions = [q.realOption, ...q.fakeOptions];
+    const chosenOption = chosenId ? allOptions.find((o) => o.id === chosenId) : null;
+    return {
+      id: q.id,
+      promptText: q.promptText.replace("____", myName),
+      realOptionText: q.realOption.text,
+      fakeOptionTexts: q.fakeOptions.map((o) => o.text),
+      myChosenOptionId: chosenId,
+      myChosenOptionText: chosenOption?.text ?? null,
+      correct: chosenId === q.realOption.id,
+    };
+  });
 }
 
 // ── Base game ─────────────────────────────────────────────────────────────────
@@ -392,27 +398,39 @@ export function buildGameView(game: Game, secret: string): GameView {
   // Base game results (my guesses about opponent)
   let myResults: QuizQuestionResult[] | null = null;
   if (me?.finishedPlaying && opponent) {
-    myResults = opponent.quizQuestions.map((q) => ({
-      id: q.id,
-      promptText: q.promptText.replace("____", opponent.name),
-      realOptionText: q.realOption.text,
-      fakeOptionTexts: q.fakeOptions.map((o) => o.text),
-      myChosenOptionId: me.guesses[q.id] ?? null,
-      correct: me.guesses[q.id] === q.realOption.id,
-    }));
+    myResults = opponent.quizQuestions.map((q) => {
+      const chosenId = me.guesses[q.id] ?? null;
+      const allOptions = [q.realOption, ...q.fakeOptions];
+      const chosenOption = chosenId ? allOptions.find((o) => o.id === chosenId) : null;
+      return {
+        id: q.id,
+        promptText: q.promptText.replace("____", opponent.name),
+        realOptionText: q.realOption.text,
+        fakeOptionTexts: q.fakeOptions.map((o) => o.text),
+        myChosenOptionId: chosenId,
+        myChosenOptionText: chosenOption?.text ?? null,
+        correct: chosenId === q.realOption.id,
+      };
+    });
   }
 
   // Opponent's results (their guesses about me) — only when game finished
   let opponentResults: QuizQuestionResult[] | null = null;
   if (game.status === "finished" && me && opponent) {
-    opponentResults = me.quizQuestions.map((q) => ({
-      id: q.id,
-      promptText: q.promptText.replace("____", me.name),
-      realOptionText: q.realOption.text,
-      fakeOptionTexts: q.fakeOptions.map((o) => o.text),
-      myChosenOptionId: opponent.guesses[q.id] ?? null,
-      correct: opponent.guesses[q.id] === q.realOption.id,
-    }));
+    opponentResults = me.quizQuestions.map((q) => {
+      const chosenId = opponent.guesses[q.id] ?? null;
+      const allOptions = [q.realOption, ...q.fakeOptions];
+      const chosenOption = chosenId ? allOptions.find((o) => o.id === chosenId) : null;
+      return {
+        id: q.id,
+        promptText: q.promptText.replace("____", me.name),
+        realOptionText: q.realOption.text,
+        fakeOptionTexts: q.fakeOptions.map((o) => o.text),
+        myChosenOptionId: chosenId,
+        myChosenOptionText: chosenOption?.text ?? null,
+        correct: chosenId === q.realOption.id,
+      };
+    });
   }
 
   // Active round view
@@ -436,14 +454,20 @@ export function buildGameView(game: Game, secret: string): GameView {
     // My round results
     let roundMyResults: QuizQuestionResult[] | null = null;
     if (myRoundData.finishedPlaying && opponentRoundData.quizQuestions.length > 0) {
-      roundMyResults = opponentRoundData.quizQuestions.map((q) => ({
-        id: q.id,
-        promptText: q.promptText.replace("____", opponent.name),
-        realOptionText: q.realOption.text,
-        fakeOptionTexts: q.fakeOptions.map((o) => o.text),
-        myChosenOptionId: myRoundData.guesses[q.id] ?? null,
-        correct: myRoundData.guesses[q.id] === q.realOption.id,
-      }));
+      roundMyResults = opponentRoundData.quizQuestions.map((q) => {
+        const chosenId = myRoundData.guesses[q.id] ?? null;
+        const allOptions = [q.realOption, ...q.fakeOptions];
+        const chosenOption = chosenId ? allOptions.find((o) => o.id === chosenId) : null;
+        return {
+          id: q.id,
+          promptText: q.promptText.replace("____", opponent.name),
+          realOptionText: q.realOption.text,
+          fakeOptionTexts: q.fakeOptions.map((o) => o.text),
+          myChosenOptionId: chosenId,
+          myChosenOptionText: chosenOption?.text ?? null,
+          correct: chosenId === q.realOption.id,
+        };
+      });
     }
 
     // Opponent's original Q&A (for generating follow-up questions)
