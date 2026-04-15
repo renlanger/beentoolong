@@ -2,10 +2,47 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
-import { useGameView, getPlayerSecret } from "@/lib/client";
+import { useGameView, getPlayerSecret, setPlayerSecret } from "@/lib/client";
 import type { RoundSuggestion } from "@/lib/ai";
 import type { RoundQuestion, PublicQuizQuestion, QuizQuestionResult } from "@/lib/types";
 import { nanoid } from "nanoid";
+
+// ── Share link ──────────────────────────────────────────────────────────────
+
+function ShareLink({ gameId }: { gameId: string }) {
+  const [copied, setCopied] = useState(false);
+  const url =
+    typeof window !== "undefined"
+      ? `${window.location.origin}/game/${gameId}`
+      : "";
+
+  function handleCopy() {
+    navigator.clipboard.writeText(url);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  }
+
+  return (
+    <div className="space-y-3">
+      <div className="flex gap-2">
+        <input
+          readOnly
+          value={url}
+          className="flex-1 px-3 py-2 rounded-lg border border-border bg-surface text-sm
+            focus:outline-none select-all"
+          onClick={(e) => (e.target as HTMLInputElement).select()}
+        />
+        <button
+          onClick={handleCopy}
+          className="px-4 py-2 text-sm font-medium rounded-lg
+            bg-accent text-white hover:bg-accent-hover transition-colors cursor-pointer"
+        >
+          {copied ? "Copied!" : "Copy"}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 // ── Question selection (A / B / C) ────────────────────────────────────────────
 
@@ -406,17 +443,20 @@ function RoundQuiz({
           <p className="text-xs text-muted">{currentIndex + 1} of {questions.length}</p>
         </div>
 
-        {current.originalQuestion && (
-          <div className="p-3 rounded-xl bg-surface border border-border text-center">
-            <p className="text-xs text-muted font-medium uppercase tracking-wide mb-1">
-              Follow-up to
-            </p>
-            <p className="text-sm text-muted italic">&ldquo;{current.originalQuestion}&rdquo;</p>
-          </div>
-        )}
-
-        <div className="text-center">
-          <p className="text-lg font-medium">{current.promptText}</p>
+        <div className="text-center space-y-3">
+          {current.originalQuestion && (
+            <div className="p-3 rounded-xl bg-surface border border-border">
+              <p className="text-xs text-muted font-medium uppercase tracking-wide mb-1">
+                You asked {opponentName}:
+              </p>
+              <p className="text-sm text-foreground italic">&ldquo;{current.originalQuestion}&rdquo;</p>
+            </div>
+          )}
+          <p className="text-lg font-medium">
+            {current.originalQuestion
+              ? `What does ${opponentName} say?`
+              : current.promptText}
+          </p>
         </div>
 
         <div className="flex flex-col gap-3">
@@ -511,9 +551,18 @@ function RoundScoreReveal({
                 <span className="px-2 py-0.5 rounded-full text-xs font-medium shrink-0 bg-success/20 text-success">Real</span>
                 <p>&ldquo;{r.realOptionText}&rdquo;</p>
               </div>
-              <p className="mt-1 text-xs text-muted">
-                You picked the {r.correct ? "✓ real one" : "✗ fake one"}
-              </p>
+              <div className="mt-2 text-xs">
+                {r.correct ? (
+                  <p className="text-success font-medium">✅ You picked the real one.</p>
+                ) : (
+                  <div className="space-y-0.5">
+                    <p className="text-danger font-medium">❌ You picked the fake one.</p>
+                    {r.myChosenOptionText && (
+                      <p className="text-muted">Your pick: &ldquo;{r.myChosenOptionText}&rdquo;</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -558,6 +607,11 @@ export default function NextRound() {
   const [questionStep, setQuestionStep] = useState(0);
   const [pendingQuestions, setPendingQuestions] = useState<PendingQuestion[]>([]);
   const [suggestions, setSuggestions] = useState<RoundSuggestion[] | null>(null);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (redirectTo) router.push(redirectTo);
+  }, [redirectTo, router]);
   const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
 
@@ -688,7 +742,7 @@ export default function NextRound() {
   }
 
   if (game.status !== "finished") {
-    router.push(`/game/${gameId}`);
+    if (!redirectTo) setRedirectTo(`/game/${gameId}`);
     return null;
   }
 
@@ -781,6 +835,12 @@ export default function NextRound() {
           <p className="text-muted">
             Waiting for {opponentName} to send their questions for you...
           </p>
+          <div className="pt-2 space-y-2">
+            <p className="text-sm text-muted">
+              In case {opponentName} closed their browser, send them this link:
+            </p>
+            <ShareLink gameId={gameId} />
+          </div>
         </div>
       </main>
     );

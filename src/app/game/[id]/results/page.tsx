@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import { useGameView } from "@/lib/client";
 import type { QuizQuestionResult } from "@/lib/types";
@@ -26,11 +27,19 @@ function ResultCard({ result }: { result: QuizQuestionResult }) {
           </div>
         ))}
       </div>
-      <div className="mt-3 flex items-center justify-between text-sm">
-        <span className="text-muted">
-          You picked the {result.correct ? "real" : "fake"} one
-        </span>
-        <span className="text-lg">{result.correct ? "✅" : "❌"}</span>
+      <div className="mt-3 pt-2 border-t border-border/50 text-sm">
+        {result.correct ? (
+          <p className="text-success font-medium">✅ You picked the real one.</p>
+        ) : (
+          <div className="space-y-1">
+            <p className="text-danger font-medium">❌ You picked the fake one.</p>
+            {result.myChosenOptionText && (
+              <p className="text-muted text-xs">
+                Your pick: &ldquo;{result.myChosenOptionText}&rdquo;
+              </p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
@@ -41,6 +50,11 @@ export default function Results() {
   const router = useRouter();
   const gameId = params.id as string;
   const { game, loading, error } = useGameView(gameId, 5000);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (redirectTo) router.push(redirectTo);
+  }, [redirectTo, router]);
 
   if (loading) {
     return (
@@ -62,7 +76,15 @@ export default function Results() {
   }
 
   if (game.status !== "finished") {
-    router.push(`/game/${gameId}`);
+    if (!redirectTo) setRedirectTo(`/game/${gameId}`);
+    return null;
+  }
+
+  // If the opponent started a new round, auto-redirect to the next-round page
+  // so this player can answer questions (or prepare their own)
+  const activeRound = game.activeRound;
+  if (activeRound && activeRound.opponentQuestionsSubmitted && !redirectTo) {
+    setRedirectTo(`/game/${gameId}/next-round`);
     return null;
   }
 
