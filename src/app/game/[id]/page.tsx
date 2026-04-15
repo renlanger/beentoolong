@@ -258,9 +258,18 @@ function QuizScoreReveal({
                 </span>
                 <p className="text-foreground">&ldquo;{r.realOptionText}&rdquo;</p>
               </div>
-              <p className="mt-2 text-xs text-muted">
-                You picked the {r.correct ? "✓ real one" : "✗ fake one"}
-              </p>
+              <div className="mt-2 text-xs">
+                {r.correct ? (
+                  <p className="text-success font-medium">✅ You picked the real one.</p>
+                ) : (
+                  <div className="space-y-0.5">
+                    <p className="text-danger font-medium">❌ You picked the fake one.</p>
+                    {r.myChosenOptionText && (
+                      <p className="text-muted">Your pick: &ldquo;{r.myChosenOptionText}&rdquo;</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
           ))}
         </div>
@@ -288,6 +297,13 @@ export default function GameHub() {
   const [introComplete, setIntroComplete] = useState(false);
   const [scoreRevealed, setScoreRevealed] = useState(false);
   const [transitionComplete, setTransitionComplete] = useState(false);
+  const [redirectTo, setRedirectTo] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (redirectTo) {
+      router.push(redirectTo);
+    }
+  }, [redirectTo, router]);
 
   if (loading) {
     return (
@@ -372,7 +388,12 @@ export default function GameHub() {
   // ── Finished ────────────────────────────────────────────────────────────────
 
   if (game.status === "finished") {
-    router.push(`/game/${gameId}/results`);
+    // If the opponent started a new round, go straight to next-round
+    if (game.activeRound?.opponentQuestionsSubmitted && !redirectTo) {
+      setRedirectTo(`/game/${gameId}/next-round`);
+      return null;
+    }
+    if (!redirectTo) setRedirectTo(`/game/${gameId}/results`);
     return null;
   }
 
@@ -380,7 +401,7 @@ export default function GameHub() {
 
   if (game.myRole === "creator") {
     if (!me?.hasSubmittedUpdates) {
-      router.push(`/game/${gameId}/setup`);
+      if (!redirectTo) setRedirectTo(`/game/${gameId}/setup`);
       return null;
     }
 
@@ -486,14 +507,14 @@ export default function GameHub() {
       );
     }
 
-    router.push(`/game/${gameId}/setup`);
+    if (!redirectTo) setRedirectTo(`/game/${gameId}/setup`);
     return null;
   }
 
   // Friend hasn't played yet — send to quiz
   if (!me?.finishedPlaying) {
     if (game.myQuiz) {
-      router.push(`/game/${gameId}/play`);
+      if (!redirectTo) setRedirectTo(`/game/${gameId}/play`);
       return null;
     }
     return (
@@ -522,6 +543,12 @@ export default function GameHub() {
           <p className="text-muted">
             They&apos;re taking the quiz now. Results will appear once they&apos;re done.
           </p>
+          <div className="pt-2 space-y-2">
+            <p className="text-sm text-muted">
+              In case {opponent?.name ?? "they"} closed their browser, send them this link so they can pick up where they left off:
+            </p>
+            <ShareLink gameId={gameId} />
+          </div>
         </div>
       </main>
     </>

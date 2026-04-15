@@ -97,6 +97,7 @@ export interface QuizQuestionResult {
   realOptionText: string;
   fakeOptionTexts: string[];
   myChosenOptionId: string | null;
+  myChosenOptionText: string | null;
   correct: boolean;
 }
 
