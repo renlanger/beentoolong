@@ -43,7 +43,7 @@ export default function Home() {
       <div className="max-w-md w-full text-center space-y-8">
         <div className="space-y-3">
           <h1 className="text-5xl font-bold tracking-tight text-foreground">
-            Re:connect
+            Been Too Long
           </h1>
           <p className="text-lg text-muted">
             A game for reconnecting with old friends

@@ -1,10 +1,10 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fdf8ef;
+  --background: #fffbf5;
   --foreground: #1c1917;
-  --accent: #e8960e;
-  --accent-hover: #c97d09;
+  --accent: #f59e0b;
+  --accent-hover: #d97706;
   --surface: #ffffff;
   --muted: #78716c;
   --border: #e7e5e4;
@@ -32,66 +32,7 @@ body {
   font-family: var(--font-sans), system-ui, sans-serif;
 }
 
-input, textarea {
+input,
+textarea {
   font-family: inherit;
-}
-
-/* ── Stars background ──────────────────────────────────────────────────────── */
-
-.stars-layer {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 0;
-  overflow: hidden;
-}
-
-.star {
-  position: absolute;
-  border-radius: 50%;
-  background: #e8960e;
-  opacity: 0;
-  animation: twinkle var(--duration, 4s) ease-in-out infinite;
-  animation-delay: var(--delay, 0s);
-}
-
-@keyframes twinkle {
-  0%, 100% { opacity: 0; transform: scale(0.8); }
-  50% { opacity: var(--max-opacity, 0.4); transform: scale(1.2); }
-}
-
-/* Warm radial glow behind content */
-.glow-top {
-  position: fixed;
-  top: -120px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 600px;
-  height: 400px;
-  background: radial-gradient(ellipse, rgba(232, 150, 14, 0.10) 0%, transparent 70%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* Content above stars */
-main, header, nav {
-  position: relative;
-  z-index: 1;
-}
-
-/* ── Button glow ───────────────────────────────────────────────────────────── */
-
-button[class*="bg-accent"] {
-  box-shadow: 0 0 0 0 rgba(232, 150, 14, 0);
-  transition: box-shadow 0.2s ease, background-color 0.2s ease, opacity 0.2s ease;
-}
-
-button[class*="bg-accent"]:hover:not(:disabled) {
-  box-shadow: 0 4px 20px rgba(232, 150, 14, 0.30);
-}
-
-/* ── Smooth page feel ──────────────────────────────────────────────────────── */
-
-* {
-  -webkit-font-smoothing: antialiased;
 }
